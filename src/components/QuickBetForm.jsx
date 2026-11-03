@@ -222,6 +222,9 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const [amount, setAmount] = useState(() =>
     bet ? String(bet.stake) : '',
   )
+  const [oddsInput, setOddsInput] = useState(() =>
+    bet ? String(bet.odds) : '',
+  )
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const containerRef = useModal(onClose)
@@ -349,10 +352,17 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
       (total, leg) => total * leg.odds,
       1,
     )
+    const effectiveOdds =
+      oddsInput.trim() === '' ? combinedOdds : Number(oddsInput)
+
+    if (!Number.isFinite(effectiveOdds) || effectiveOdds <= 1) {
+      setError('La cuota total debe ser mayor que 1.')
+      return
+    }
 
     const payload = {
       legs: normalizedLegs,
-      odds: Number(combinedOdds.toFixed(2)),
+      odds: Number(effectiveOdds.toFixed(2)),
       stake,
     }
 
@@ -390,13 +400,18 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const activeLines = visibleGroups.flatMap((group) =>
     mode === 'combo' ? group.lines : group.lines.slice(0, 1),
   )
-  const combinedOdds = activeLines.reduce((total, line) => {
+  const autoOdds = activeLines.reduce((total, line) => {
     const odds = Number(line.odds)
     return Number.isFinite(odds) && odds > 1 ? total * odds : total
   }, 1)
+  const manualOdds = oddsInput.trim() === '' ? null : Number(oddsInput)
+  const effectiveOdds = manualOdds === null ? autoOdds : manualOdds
+  const oddsValid = Number.isFinite(effectiveOdds) && effectiveOdds > 1
   const stake = Number(amount)
   const potentialReturn =
-    Number.isFinite(stake) && stake > 0 ? stake * combinedOdds : 0
+    Number.isFinite(stake) && stake > 0 && oddsValid
+      ? stake * effectiveOdds
+      : 0
 
   return (
     <div
@@ -528,22 +543,63 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
             </button>
           )}
 
-          {mode === 'combo' && activeLines.length > 1 && (
-            <div className="space-y-1 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 px-4 py-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-indigo-900/70 dark:text-indigo-100/70">Cuota total</span>
-                <span className="font-semibold text-indigo-700 dark:text-indigo-300">
-                  {combinedOdds.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-indigo-900/70 dark:text-indigo-100/70">Retorno potencial</span>
-                <span className="font-semibold text-indigo-700 dark:text-indigo-300">
-                  {formatCurrency(potentialReturn)}
-                </span>
-              </div>
+          <div className="space-y-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <label
+                htmlFor="total-odds"
+                className="text-sm font-medium text-indigo-900/80 dark:text-indigo-100/80"
+              >
+                Cuota total
+              </label>
+              {oddsInput !== '' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOddsInput('')
+                    setError('')
+                  }}
+                  className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition hover:text-indigo-900 dark:hover:text-indigo-100"
+                >
+                  Usar automática
+                </button>
+              )}
             </div>
-          )}
+
+            <input
+              id="total-odds"
+              type="number"
+              inputMode="decimal"
+              min="1.01"
+              step="0.01"
+              value={oddsInput}
+              onChange={(event) => {
+                setOddsInput(event.target.value)
+                setError('')
+              }}
+              placeholder={autoOdds > 1 ? autoOdds.toFixed(2) : '1.00'}
+              className={inputClass}
+            />
+
+            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+              {oddsInput === ''
+                ? `Calculada automáticamente: ${autoOdds.toFixed(2)}`
+                : `Automática: ${autoOdds.toFixed(2)} · Ajustada manualmente`}
+            </p>
+
+            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+              Edítala si tu casa aplica ajustes, por ejemplo en combinadas del
+              mismo partido.
+            </p>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-indigo-900/70 dark:text-indigo-100/70">
+                Retorno potencial
+              </span>
+              <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                {formatCurrency(potentialReturn)}
+              </span>
+            </div>
+          </div>
 
           <div>
             <label htmlFor="amount" className={labelClass}>
