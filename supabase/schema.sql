@@ -21,9 +21,19 @@ create table if not exists public.bet_legs (
   competition text not null,
   market text not null,
   selection text not null,
-  odds numeric(10, 2) not null check (odds > 1),
+  odds numeric(10, 2) check (odds > 1),
+  group_odds numeric(10, 2),
+  market_key text,
+  selection_data jsonb,
   position integer not null default 0
 );
+
+-- Migración para proyectos creados antes de las cuotas por partido.
+-- `odds` puede ser NULL cuando la combinada usa una cuota por partido.
+alter table public.bet_legs alter column odds drop not null;
+alter table public.bet_legs add column if not exists group_odds numeric(10, 2);
+alter table public.bet_legs add column if not exists market_key text;
+alter table public.bet_legs add column if not exists selection_data jsonb;
 
 create index if not exists bet_legs_bet_id_idx
   on public.bet_legs (bet_id);
@@ -112,7 +122,8 @@ begin
   for v_leg in select * from jsonb_array_elements(p_legs)
   loop
     insert into public.bet_legs (
-      bet_id, "match", competition, market, selection, odds, position
+      bet_id, "match", competition, market, selection, odds, group_odds,
+      market_key, selection_data, position
     )
     values (
       v_bet_id,
@@ -121,6 +132,9 @@ begin
       v_leg ->> 'market',
       v_leg ->> 'selection',
       (v_leg ->> 'odds')::numeric,
+      (v_leg ->> 'group_odds')::numeric,
+      v_leg ->> 'market_key',
+      nullif(v_leg -> 'selection_data', 'null'::jsonb),
       v_position
     );
 
@@ -160,7 +174,8 @@ begin
   for v_leg in select * from jsonb_array_elements(p_legs)
   loop
     insert into public.bet_legs (
-      bet_id, "match", competition, market, selection, odds, position
+      bet_id, "match", competition, market, selection, odds, group_odds,
+      market_key, selection_data, position
     )
     values (
       p_bet_id,
@@ -169,6 +184,9 @@ begin
       v_leg ->> 'market',
       v_leg ->> 'selection',
       (v_leg ->> 'odds')::numeric,
+      (v_leg ->> 'group_odds')::numeric,
+      v_leg ->> 'market_key',
+      nullif(v_leg -> 'selection_data', 'null'::jsonb),
       v_position
     );
 

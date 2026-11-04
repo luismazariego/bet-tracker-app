@@ -1,10 +1,26 @@
 import { useState } from 'react'
 import { useModal } from '../hooks/useModal'
-import { createId, formatCurrency } from '../lib/bets'
+import { createId, formatCurrency, productOdds } from '../lib/bets'
+import {
+  CUSTOM_MARKET_KEY,
+  MARKET_CATEGORIES,
+  MARKET_INPUT,
+  buildSelectionText,
+  defaultSelection,
+  findMarket,
+  formatMatch,
+  parseMatch,
+  validateSelection,
+} from '../lib/markets'
 
 const MODES = [
   { key: 'single', label: 'Simple' },
   { key: 'combo', label: 'Combinada' },
+]
+
+const ODDS_MODES = [
+  { key: 'line', label: 'Cuota por selección' },
+  { key: 'group', label: 'Cuota por partido' },
 ]
 
 const inputClass =
@@ -14,11 +30,49 @@ const labelClass =
   'mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'
 
 function createLine() {
-  return { key: createId(), market: '', selection: '', odds: '' }
+  return {
+    key: createId(),
+    marketKey: '',
+    market: '',
+    selection: '',
+    selectionData: null,
+    odds: '',
+  }
 }
 
 function createGroup() {
-  return { key: createId(), match: '', competition: '', lines: [createLine()] }
+  return {
+    key: createId(),
+    home: '',
+    away: '',
+    competition: '',
+    odds: '',
+    lines: [createLine()],
+  }
+}
+
+function lineFromLeg(leg) {
+  const market = findMarket(leg.marketKey)
+
+  if (market) {
+    return {
+      key: createId(),
+      marketKey: leg.marketKey,
+      market: '',
+      selection: '',
+      selectionData: leg.selectionData ?? defaultSelection(market),
+      odds: leg.odds == null ? '' : String(leg.odds),
+    }
+  }
+
+  return {
+    key: createId(),
+    marketKey: CUSTOM_MARKET_KEY,
+    market: leg.market ?? '',
+    selection: leg.selection ?? '',
+    selectionData: null,
+    odds: leg.odds == null ? '' : String(leg.odds),
+  }
 }
 
 function groupsFromBet(bet) {
@@ -31,36 +85,221 @@ function groupsFromBet(bet) {
     if (!group) {
       group = {
         key,
-        match: leg.match,
+        ...parseMatch(leg.match),
         competition: leg.competition,
+        odds: '',
         lines: [],
       }
       groups.push(group)
     }
 
-    group.lines.push({
-      key: createId(),
-      market: leg.market,
-      selection: leg.selection,
-      odds: String(leg.odds),
-    })
+    group.lines.push(lineFromLeg(leg))
+
+    if (group.odds === '' && leg.groupOdds != null) {
+      group.odds = String(leg.groupOdds)
+    }
   }
 
   return groups.length > 0 ? groups : [createGroup()]
 }
 
+function SelectionFields({ line, home, away, onChange }) {
+  const market = findMarket(line.marketKey)
+  if (!market || market.inputType === MARKET_INPUT.CUSTOM) return null
+
+  const data = line.selectionData ?? {}
+  const local = home.trim() || 'Local'
+  const visitor = away.trim() || 'Visita'
+  const fieldId = (field) => `selection-${line.key}-${field}`
+
+  if (market.inputType === MARKET_INPUT.WINNER) {
+    return (
+      <div>
+        <label htmlFor={fieldId('winner')} className={labelClass}>
+          Resultado
+        </label>
+        <select
+          id={fieldId('winner')}
+          value={data.value ?? 'home'}
+          onChange={(event) => onChange({ ...data, value: event.target.value })}
+          className={inputClass}
+        >
+          <option value="home">{local}</option>
+          <option value="draw">Empate</option>
+          <option value="away">{visitor}</option>
+        </select>
+      </div>
+    )
+  }
+
+  if (market.inputType === MARKET_INPUT.DOUBLE_CHANCE) {
+    return (
+      <div>
+        <label htmlFor={fieldId('double')} className={labelClass}>
+          Doble oportunidad
+        </label>
+        <select
+          id={fieldId('double')}
+          value={data.value ?? '1X'}
+          onChange={(event) => onChange({ ...data, value: event.target.value })}
+          className={inputClass}
+        >
+          <option value="1X">{local} o Empate</option>
+          <option value="12">{local} o {visitor}</option>
+          <option value="X2">Empate o {visitor}</option>
+        </select>
+      </div>
+    )
+  }
+
+  if (market.inputType === MARKET_INPUT.YES_NO) {
+    return (
+      <div>
+        <label htmlFor={fieldId('yesno')} className={labelClass}>
+          Selección
+        </label>
+        <select
+          id={fieldId('yesno')}
+          value={data.value ?? 'yes'}
+          onChange={(event) => onChange({ ...data, value: event.target.value })}
+          className={inputClass}
+        >
+          <option value="yes">Sí</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+    )
+  }
+
+  if (market.inputType === MARKET_INPUT.OVER_UNDER) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor={fieldId('direction')} className={labelClass}>
+            Selección
+          </label>
+          <select
+            id={fieldId('direction')}
+            value={data.direction ?? 'over'}
+            onChange={(event) =>
+              onChange({ ...data, direction: event.target.value })
+            }
+            className={inputClass}
+          >
+            <option value="over">Más de</option>
+            <option value="under">Menos de</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor={fieldId('line')} className={labelClass}>
+            Línea
+          </label>
+          <input
+            id={fieldId('line')}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.5"
+            value={data.line ?? ''}
+            onChange={(event) =>
+              onChange({ ...data, line: event.target.value })
+            }
+            placeholder="2.5"
+            className={inputClass}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (market.inputType === MARKET_INPUT.RANGE) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor={fieldId('min')} className={labelClass}>
+            Mínimo
+          </label>
+          <input
+            id={fieldId('min')}
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={data.min ?? ''}
+            onChange={(event) =>
+              onChange({ ...data, min: event.target.value })
+            }
+            placeholder="0"
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label htmlFor={fieldId('max')} className={labelClass}>
+            Máximo
+          </label>
+          <input
+            id={fieldId('max')}
+            type="number"
+            inputMode="numeric"
+            min="0"
+            step="1"
+            value={data.max ?? ''}
+            onChange={(event) =>
+              onChange({ ...data, max: event.target.value })
+            }
+            placeholder="2"
+            className={inputClass}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (market.inputType === MARKET_INPUT.PLAYER) {
+    return (
+      <div>
+        <label htmlFor={fieldId('player')} className={labelClass}>
+          Jugador (nombre o número)
+        </label>
+        <input
+          id={fieldId('player')}
+          type="text"
+          value={data.player ?? ''}
+          onChange={(event) =>
+            onChange({ ...data, player: event.target.value })
+          }
+          placeholder="Messi o 10"
+          className={inputClass}
+        />
+      </div>
+    )
+  }
+
+  return null
+}
+
 function LineFields({
   line,
   lineIndex,
-  groupKey,
+  group,
   canRemove,
-  onChange,
+  lineMode,
+  onMarketChange,
+  onFieldChange,
+  onSelectionChange,
   onRemove,
 }) {
   const fieldId = (field) => `line-${line.key}-${field}`
+  const market = findMarket(line.marketKey)
 
   return (
-    <div className={lineIndex > 0 ? 'border-t border-slate-200 dark:border-slate-800 pt-3' : ''}>
+    <div
+      className={
+        lineIndex > 0
+          ? 'border-t border-slate-200 dark:border-slate-800 pt-3'
+          : ''
+      }
+    >
       {lineIndex > 0 && (
         <div className="mb-2 flex items-center justify-between gap-2">
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -68,7 +307,7 @@ function LineFields({
           </p>
           <button
             type="button"
-            onClick={() => onRemove(groupKey, line.key)}
+            onClick={() => onRemove(group.key, line.key)}
             disabled={!canRemove}
             className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-400 dark:text-slate-500 transition hover:bg-white dark:hover:bg-slate-800 hover:text-rose-600 dark:hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400"
           >
@@ -82,36 +321,82 @@ function LineFields({
           <label htmlFor={fieldId('market')} className={labelClass}>
             Mercado
           </label>
-          <input
+          <select
             id={fieldId('market')}
-            type="text"
-            value={line.market}
+            value={line.marketKey}
             onChange={(event) =>
-              onChange(groupKey, line.key, 'market', event.target.value)
+              onMarketChange(group.key, line.key, event.target.value)
             }
-            placeholder="Córners totales"
             className={inputClass}
             required
-          />
+          >
+            <option value="">Selecciona un mercado</option>
+            {MARKET_CATEGORIES.map((category) => (
+              <optgroup key={category.key} label={category.label}>
+                {category.markets.map((item) => (
+                  <option key={item.key} value={item.key}>
+                    {item.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor={fieldId('selection')} className={labelClass}>
-              Selección
-            </label>
-            <input
-              id={fieldId('selection')}
-              type="text"
-              value={line.selection}
-              onChange={(event) =>
-                onChange(groupKey, line.key, 'selection', event.target.value)
-              }
-              placeholder="Más de 7"
-              className={inputClass}
-              required
-            />
+        {market?.inputType === MARKET_INPUT.CUSTOM && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor={fieldId('custom-market')} className={labelClass}>
+                Mercado libre
+              </label>
+              <input
+                id={fieldId('custom-market')}
+                type="text"
+                value={line.market}
+                onChange={(event) =>
+                  onFieldChange(group.key, line.key, 'market', event.target.value)
+                }
+                placeholder="Hándicap europeo"
+                className={inputClass}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor={fieldId('custom-selection')} className={labelClass}>
+                Selección libre
+              </label>
+              <input
+                id={fieldId('custom-selection')}
+                type="text"
+                value={line.selection}
+                onChange={(event) =>
+                  onFieldChange(
+                    group.key,
+                    line.key,
+                    'selection',
+                    event.target.value,
+                  )
+                }
+                placeholder="Local -1"
+                className={inputClass}
+                required
+              />
+            </div>
           </div>
+        )}
+
+        {market && market.inputType !== MARKET_INPUT.CUSTOM && (
+          <SelectionFields
+            line={line}
+            home={group.home}
+            away={group.away}
+            onChange={(data) =>
+              onSelectionChange(group.key, line.key, data)
+            }
+          />
+        )}
+
+        {lineMode && (
           <div>
             <label htmlFor={fieldId('odds')} className={labelClass}>
               Cuota
@@ -124,14 +409,14 @@ function LineFields({
               step="0.01"
               value={line.odds}
               onChange={(event) =>
-                onChange(groupKey, line.key, 'odds', event.target.value)
+                onFieldChange(group.key, line.key, 'odds', event.target.value)
               }
               placeholder="1.60"
               className={inputClass}
               required
             />
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
@@ -141,8 +426,12 @@ function GroupFields({
   group,
   groupIndex,
   combo,
-  onChange,
+  lineMode,
+  groupOddsMode,
+  onGroupChange,
+  onMarketChange,
   onLineChange,
+  onSelectionChange,
   onAddLine,
   onRemoveLine,
 }) {
@@ -151,20 +440,39 @@ function GroupFields({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label htmlFor={fieldId('match')} className={labelClass}>
-          Partido
-        </label>
-        <input
-          id={fieldId('match')}
-          type="text"
-          value={group.match}
-          onChange={(event) => onChange(group.key, 'match', event.target.value)}
-          placeholder="Barcelona vs Aston Villa"
-          className={inputClass}
-          autoFocus={groupIndex === 0}
-          required
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor={fieldId('home')} className={labelClass}>
+            Local
+          </label>
+          <input
+            id={fieldId('home')}
+            type="text"
+            value={group.home}
+            onChange={(event) =>
+              onGroupChange(group.key, 'home', event.target.value)
+            }
+            placeholder="Barcelona"
+            className={inputClass}
+            autoFocus={groupIndex === 0}
+            required
+          />
+        </div>
+        <div>
+          <label htmlFor={fieldId('away')} className={labelClass}>
+            Visitante
+          </label>
+          <input
+            id={fieldId('away')}
+            type="text"
+            value={group.away}
+            onChange={(event) =>
+              onGroupChange(group.key, 'away', event.target.value)
+            }
+            placeholder="Aston Villa"
+            className={inputClass}
+          />
+        </div>
       </div>
 
       <div>
@@ -176,7 +484,7 @@ function GroupFields({
           type="text"
           value={group.competition}
           onChange={(event) =>
-            onChange(group.key, 'competition', event.target.value)
+            onGroupChange(group.key, 'competition', event.target.value)
           }
           placeholder="Champions League"
           className={inputClass}
@@ -190,9 +498,12 @@ function GroupFields({
             key={line.key}
             line={line}
             lineIndex={lineIndex}
-            groupKey={group.key}
+            group={group}
             canRemove={group.lines.length > 1}
-            onChange={onLineChange}
+            lineMode={lineMode}
+            onMarketChange={onMarketChange}
+            onFieldChange={onLineChange}
+            onSelectionChange={onSelectionChange}
             onRemove={onRemoveLine}
           />
         ))}
@@ -207,6 +518,32 @@ function GroupFields({
           + Agregar selección
         </button>
       )}
+
+      {groupOddsMode && (
+        <div>
+          <label htmlFor={fieldId('group-odds')} className={labelClass}>
+            Cuota combinada del partido
+          </label>
+          <input
+            id={fieldId('group-odds')}
+            type="number"
+            inputMode="decimal"
+            min="1.01"
+            step="0.01"
+            value={group.odds}
+            onChange={(event) =>
+              onGroupChange(group.key, 'odds', event.target.value)
+            }
+            placeholder="3.40"
+            className={inputClass}
+            required
+          />
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Cuota que paga la casa por combinar todas las selecciones de este
+            partido.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
@@ -215,6 +552,11 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const isEditing = Boolean(bet)
   const [mode, setMode] = useState(() =>
     bet && (bet.legs?.length ?? 0) > 1 ? 'combo' : 'single',
+  )
+  const [oddsMode, setOddsMode] = useState(() =>
+    bet && (bet.legs?.length ?? 0) > 1 && bet.legs.some((leg) => leg.odds == null)
+      ? 'group'
+      : 'line',
   )
   const [groups, setGroups] = useState(() =>
     bet ? groupsFromBet(bet) : [createGroup()],
@@ -229,15 +571,28 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const [submitting, setSubmitting] = useState(false)
   const containerRef = useModal(onClose)
 
+  const lineMode = mode === 'single' || oddsMode === 'line'
+  const groupOddsMode = mode === 'combo' && oddsMode === 'group'
+
   function changeMode(nextMode) {
     setMode(nextMode)
     setError('')
 
     if (nextMode === 'single') {
+      setOddsMode('line')
       setGroups((previous) => [
-        { ...previous[0], lines: previous[0].lines.slice(0, 1) },
+        {
+          ...previous[0],
+          odds: '',
+          lines: previous[0].lines.slice(0, 1),
+        },
       ])
     }
+  }
+
+  function changeOddsMode(nextMode) {
+    setOddsMode(nextMode)
+    setError('')
   }
 
   function updateGroup(groupKey, field, value) {
@@ -257,6 +612,50 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
               ...group,
               lines: group.lines.map((line) =>
                 line.key === lineKey ? { ...line, [field]: value } : line,
+              ),
+            }
+          : group,
+      ),
+    )
+    setError('')
+  }
+
+  function updateMarket(groupKey, lineKey, marketKey) {
+    const market = findMarket(marketKey)
+
+    setGroups((previous) =>
+      previous.map((group) =>
+        group.key === groupKey
+          ? {
+              ...group,
+              lines: group.lines.map((line) =>
+                line.key === lineKey
+                  ? {
+                      ...line,
+                      marketKey,
+                      market: '',
+                      selection: '',
+                      selectionData: defaultSelection(market),
+                    }
+                  : line,
+              ),
+            }
+          : group,
+      ),
+    )
+    setError('')
+  }
+
+  function updateSelection(groupKey, lineKey, selectionData) {
+    setGroups((previous) =>
+      previous.map((group) =>
+        group.key === groupKey
+          ? {
+              ...group,
+              lines: group.lines.map((line) =>
+                line.key === lineKey
+                  ? { ...line, selectionData }
+                  : line,
               ),
             }
           : group,
@@ -311,47 +710,107 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
     const normalizedLegs = []
 
     for (const [groupIndex, group] of activeGroups.entries()) {
-      const match = group.match.trim()
+      const home = group.home.trim()
+      const away = group.away.trim()
       const competition = group.competition.trim()
+      const match = formatMatch(home, away)
 
-      if (!match || !competition) {
-        setError(`Completa partido y competición en el partido ${groupIndex + 1}.`)
+      if (!home || !competition) {
+        setError(
+          `Completa local y competición en el partido ${groupIndex + 1}.`,
+        )
         return
+      }
+
+      if (groupOddsMode) {
+        const groupOdds = Number(group.odds)
+        if (!Number.isFinite(groupOdds) || groupOdds <= 1) {
+          setError(
+            `La cuota combinada del partido ${groupIndex + 1} debe ser mayor que 1.`,
+          )
+          return
+        }
       }
 
       const lines = mode === 'combo' ? group.lines : group.lines.slice(0, 1)
 
+      if (lines.length === 0) {
+        setError(`Agrega al menos una selección en el partido ${groupIndex + 1}.`)
+        return
+      }
+
       for (const [lineIndex, line] of lines.entries()) {
-        if (!line.market.trim() || !line.selection.trim()) {
+        const market = findMarket(line.marketKey)
+
+        if (!market) {
           setError(
-            `Completa mercado y selección en la selección ${lineIndex + 1} del partido ${groupIndex + 1}.`,
+            `Selecciona un mercado en la selección ${lineIndex + 1} del partido ${groupIndex + 1}.`,
           )
           return
         }
 
-        const odds = Number(line.odds)
-        if (!Number.isFinite(odds) || odds <= 1) {
-          setError(
-            `La cuota de la selección ${lineIndex + 1} del partido ${groupIndex + 1} debe ser mayor que 1.`,
-          )
-          return
+        let marketLabel = market.label
+        let selectionLabel
+        let selectionData = line.selectionData
+
+        if (market.inputType === MARKET_INPUT.CUSTOM) {
+          marketLabel = line.market.trim()
+          selectionLabel = line.selection.trim()
+
+          if (!marketLabel || !selectionLabel) {
+            setError(
+              `Completa mercado y selección libre en la selección ${lineIndex + 1} del partido ${groupIndex + 1}.`,
+            )
+            return
+          }
+
+          selectionData = null
+        } else {
+          const selectionError = validateSelection(market, line.selectionData)
+
+          if (selectionError) {
+            setError(
+              `Selección ${lineIndex + 1} del partido ${groupIndex + 1}: ${selectionError}`,
+            )
+            return
+          }
+
+          selectionLabel = buildSelectionText(market, line.selectionData, {
+            home,
+            away,
+          })
+        }
+
+        let legOdds = null
+
+        if (lineMode) {
+          legOdds = Number(line.odds)
+          if (!Number.isFinite(legOdds) || legOdds <= 1) {
+            setError(
+              `La cuota de la selección ${lineIndex + 1} del partido ${groupIndex + 1} debe ser mayor que 1.`,
+            )
+            return
+          }
         }
 
         normalizedLegs.push({
           id: createId(),
           match,
           competition,
-          market: line.market.trim(),
-          selection: line.selection.trim(),
-          odds,
+          market: marketLabel,
+          selection: selectionLabel,
+          odds: lineMode ? legOdds : null,
+          groupOdds: groupOddsMode ? Number(group.odds) : null,
+          marketKey:
+            market.inputType === MARKET_INPUT.CUSTOM ? null : line.marketKey,
+          selectionData,
         })
       }
     }
 
-    const combinedOdds = normalizedLegs.reduce(
-      (total, leg) => total * leg.odds,
-      1,
-    )
+    const combinedOdds = groupOddsMode
+      ? productOdds(activeGroups.map((group) => group.odds))
+      : productOdds(normalizedLegs.map((leg) => leg.odds))
     const effectiveOdds =
       oddsInput.trim() === '' ? combinedOdds : Number(oddsInput)
 
@@ -400,10 +859,11 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const activeLines = visibleGroups.flatMap((group) =>
     mode === 'combo' ? group.lines : group.lines.slice(0, 1),
   )
-  const autoOdds = activeLines.reduce((total, line) => {
-    const odds = Number(line.odds)
-    return Number.isFinite(odds) && odds > 1 ? total * odds : total
-  }, 1)
+  const autoOdds = productOdds(
+    groupOddsMode
+      ? visibleGroups.map((group) => group.odds)
+      : activeLines.map((line) => line.odds),
+  )
   const manualOdds = oddsInput.trim() === '' ? null : Number(oddsInput)
   const effectiveOdds = manualOdds === null ? autoOdds : manualOdds
   const oddsValid = Number.isFinite(effectiveOdds) && effectiveOdds > 1
@@ -493,6 +953,33 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
             </div>
           </div>
 
+          {mode === 'combo' && (
+            <div>
+              <p className={labelClass}>Cuotas de la combinada</p>
+              <div
+                className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+                role="group"
+                aria-label="Modo de cuotas"
+              >
+                {ODDS_MODES.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => changeOddsMode(item.key)}
+                    aria-pressed={oddsMode === item.key}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      oddsMode === item.key
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {visibleGroups.map((group, groupIndex) => (
               <div
@@ -524,8 +1011,12 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
                   group={group}
                   groupIndex={groupIndex}
                   combo={mode === 'combo'}
-                  onChange={updateGroup}
+                  lineMode={lineMode}
+                  groupOddsMode={groupOddsMode}
+                  onGroupChange={updateGroup}
+                  onMarketChange={updateMarket}
                   onLineChange={updateLine}
+                  onSelectionChange={updateSelection}
                   onAddLine={addLine}
                   onRemoveLine={removeLine}
                 />
@@ -584,6 +1075,12 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
               {oddsInput === ''
                 ? `Calculada automáticamente: ${autoOdds.toFixed(2)}`
                 : `Automática: ${autoOdds.toFixed(2)} · Ajustada manualmente`}
+            </p>
+
+            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+              {groupOddsMode
+                ? 'La automática es el producto de las cuotas combinadas de cada partido.'
+                : 'La automática es el producto de las cuotas de cada selección.'}
             </p>
 
             <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">

@@ -83,11 +83,15 @@ function groupLegs(legs) {
 
     if (existing) {
       existing.legs.push(leg)
+      if (existing.groupOdds == null && leg.groupOdds != null) {
+        existing.groupOdds = leg.groupOdds
+      }
     } else {
       groups.push({
         key,
         match: leg.match,
         competition: leg.competition,
+        groupOdds: leg.groupOdds ?? null,
         legs: [leg],
       })
     }
@@ -111,14 +115,24 @@ function ComboLegs({ legs, className = '' }) {
                 · {group.competition}
               </span>
             )}
+            {group.groupOdds != null && (
+              <span className="ml-1.5 font-semibold text-indigo-600 dark:text-indigo-400">
+                @{Number(group.groupOdds).toFixed(2)}
+              </span>
+            )}
           </p>
           <ul className="mt-0.5 space-y-1">
             {group.legs.map((leg) => (
               <li key={leg.id} className="text-[11px] text-slate-500 dark:text-slate-400">
-                {leg.market} · {leg.selection}{' '}
-                <span className="text-slate-400 dark:text-slate-500">
-                  @{Number(leg.odds).toFixed(2)}
-                </span>
+                {leg.market} · {leg.selection}
+                {leg.odds != null && (
+                  <>
+                    {' '}
+                    <span className="text-slate-400 dark:text-slate-500">
+                      @{Number(leg.odds).toFixed(2)}
+                    </span>
+                  </>
+                )}
               </li>
             ))}
           </ul>

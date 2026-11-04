@@ -79,6 +79,13 @@ export function profitClass(value) {
   return 'text-slate-400 dark:text-slate-500'
 }
 
+export function productOdds(values) {
+  return values.reduce((total, value) => {
+    const odds = Number(value)
+    return Number.isFinite(odds) && odds > 1 ? total * odds : total
+  }, 1)
+}
+
 export function betProfit(bet) {
   if (bet.status === STATUS.WON) return bet.stake * (bet.odds - 1)
   if (bet.status === STATUS.LOST) return -bet.stake

@@ -21,7 +21,10 @@ function mapBetRow(row) {
         competition: leg.competition,
         market: leg.market,
         selection: leg.selection,
-        odds: Number(leg.odds),
+        odds: leg.odds == null ? null : Number(leg.odds),
+        groupOdds: leg.group_odds == null ? null : Number(leg.group_odds),
+        marketKey: leg.market_key ?? null,
+        selectionData: leg.selection_data ?? null,
       })),
   }
 }
@@ -32,7 +35,10 @@ function mapLegsPayload(bet) {
     competition: leg.competition,
     market: leg.market,
     selection: leg.selection,
-    odds: leg.odds,
+    odds: leg.odds ?? null,
+    group_odds: leg.groupOdds ?? null,
+    market_key: leg.marketKey ?? null,
+    selection_data: leg.selectionData ?? null,
   }))
 }
 
