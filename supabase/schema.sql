@@ -10,6 +10,8 @@ create table if not exists public.bets (
   stake numeric(12, 2) not null check (stake > 0),
   status text not null default 'PENDING'
     check (status in ('PENDING', 'WON', 'LOST', 'CASHOUT')),
+  sport text not null default 'football'
+    check (sport in ('football', 'basketball')),
   cash_out numeric(12, 2),
   created_at timestamptz not null default now()
 );
@@ -35,11 +37,19 @@ alter table public.bet_legs add column if not exists group_odds numeric(10, 2);
 alter table public.bet_legs add column if not exists market_key text;
 alter table public.bet_legs add column if not exists selection_data jsonb;
 
+-- Migración para proyectos creados antes del soporte de deportes.
+alter table public.bets
+  add column if not exists sport text not null default 'football'
+  check (sport in ('football', 'basketball'));
+
 create index if not exists bet_legs_bet_id_idx
   on public.bet_legs (bet_id);
 
 create index if not exists bets_user_id_created_at_idx
   on public.bets (user_id, created_at desc);
+
+create index if not exists bets_user_id_sport_created_at_idx
+  on public.bets (user_id, sport, created_at desc);
 
 alter table public.bets enable row level security;
 alter table public.bet_legs enable row level security;
@@ -99,11 +109,16 @@ create policy "bet_legs_delete_own" on public.bet_legs
     )
   );
 
+-- La firma cambia al añadir el deporte; se elimina la versión anterior.
+drop function if exists public.create_bet(numeric, numeric, jsonb);
+drop function if exists public.update_bet(uuid, numeric, numeric, jsonb);
+
 -- Crea una apuesta con sus selecciones de forma atómica
 create or replace function public.create_bet(
   p_odds numeric,
   p_stake numeric,
-  p_legs jsonb
+  p_legs jsonb,
+  p_sport text default 'football'
 )
 returns uuid
 language plpgsql
@@ -115,8 +130,8 @@ declare
   v_leg jsonb;
   v_position integer := 0;
 begin
-  insert into public.bets (user_id, odds, stake, status)
-  values (auth.uid(), p_odds, p_stake, 'PENDING')
+  insert into public.bets (user_id, odds, stake, status, sport)
+  values (auth.uid(), p_odds, p_stake, 'PENDING', coalesce(p_sport, 'football'))
   returning id into v_bet_id;
 
   for v_leg in select * from jsonb_array_elements(p_legs)
@@ -150,7 +165,8 @@ create or replace function public.update_bet(
   p_bet_id uuid,
   p_odds numeric,
   p_stake numeric,
-  p_legs jsonb
+  p_legs jsonb,
+  p_sport text default 'football'
 )
 returns void
 language plpgsql
@@ -162,7 +178,9 @@ declare
   v_position integer := 0;
 begin
   update public.bets
-    set odds = p_odds, stake = p_stake
+    set odds = p_odds,
+        stake = p_stake,
+        sport = coalesce(p_sport, 'football')
     where id = p_bet_id and user_id = auth.uid();
 
   if not found then
@@ -203,8 +221,8 @@ grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.bets to authenticated;
 grant select, insert, update, delete on public.bet_legs to authenticated;
 
-revoke all on function public.create_bet(numeric, numeric, jsonb) from public, anon;
-grant execute on function public.create_bet(numeric, numeric, jsonb) to authenticated;
+revoke all on function public.create_bet(numeric, numeric, jsonb, text) from public, anon;
+grant execute on function public.create_bet(numeric, numeric, jsonb, text) to authenticated;
 
-revoke all on function public.update_bet(uuid, numeric, numeric, jsonb) from public, anon;
-grant execute on function public.update_bet(uuid, numeric, numeric, jsonb) to authenticated;
+revoke all on function public.update_bet(uuid, numeric, numeric, jsonb, text) from public, anon;
+grant execute on function public.update_bet(uuid, numeric, numeric, jsonb, text) to authenticated;

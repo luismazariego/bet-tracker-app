@@ -9,6 +9,7 @@ import {
   profitClass,
 } from '../lib/bets'
 import { CashOutDialog } from './CashOutDialog'
+import { SportFilter } from './SportFilter'
 import { StatusBadge } from './StatusBadge'
 
 const FILTERS = [
@@ -144,6 +145,9 @@ function ComboLegs({ legs, className = '' }) {
 
 export function BetList({
   bets,
+  sportFilter,
+  sportCounts,
+  onSportFilterChange,
   onUpdateStatus,
   onCashOut,
   onRemove,
@@ -209,6 +213,17 @@ export function BetList({
           <span className="text-base leading-none">+</span>
           Nueva apuesta
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SportFilter
+          value={sportFilter}
+          onChange={onSportFilterChange}
+          counts={sportCounts}
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Filtra el histórico y los contadores por deporte.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

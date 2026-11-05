@@ -5,7 +5,13 @@ export const MARKET_INPUT = {
   OVER_UNDER: 'overUnder',
   RANGE: 'range',
   PLAYER: 'player',
+  PLAYER_OVER_UNDER: 'playerOverUnder',
   CUSTOM: 'custom',
+}
+
+export const SPORTS = {
+  FOOTBALL: 'football',
+  BASKETBALL: 'basketball',
 }
 
 export const CUSTOM_MARKET_KEY = 'otro'
@@ -376,29 +382,149 @@ export const MARKET_CATEGORIES = [
   },
 ]
 
-const MARKET_MAP = new Map()
+export const BASKETBALL_MARKET_CATEGORIES = [
+  {
+    key: 'resultado',
+    label: 'Resultado',
+    markets: [
+      {
+        key: 'basket_ganador',
+        label: 'Ganador (incl. prórroga)',
+        inputType: MARKET_INPUT.WINNER,
+        allowDraw: false,
+      },
+    ],
+  },
+  {
+    key: 'puntos',
+    label: 'Puntos',
+    markets: [
+      {
+        key: 'basket_total_puntos',
+        label: 'Total puntos',
+        inputType: MARKET_INPUT.OVER_UNDER,
+      },
+      {
+        key: 'basket_total_puntos_local',
+        label: 'Total puntos local',
+        inputType: MARKET_INPUT.OVER_UNDER,
+      },
+      {
+        key: 'basket_total_puntos_visita',
+        label: 'Total puntos visitante',
+        inputType: MARKET_INPUT.OVER_UNDER,
+      },
+    ],
+  },
+  {
+    key: 'jugador',
+    label: 'Jugador',
+    markets: [
+      {
+        key: 'basket_jugador_puntos',
+        label: 'Puntos jugador',
+        inputType: MARKET_INPUT.PLAYER_OVER_UNDER,
+      },
+      {
+        key: 'basket_jugador_rebotes',
+        label: 'Rebotes jugador',
+        inputType: MARKET_INPUT.PLAYER_OVER_UNDER,
+      },
+      {
+        key: 'basket_jugador_asistencias',
+        label: 'Asistencias jugador',
+        inputType: MARKET_INPUT.PLAYER_OVER_UNDER,
+      },
+      {
+        key: 'basket_jugador_pra',
+        label: 'Puntos + rebotes + asistencias',
+        inputType: MARKET_INPUT.PLAYER_OVER_UNDER,
+      },
+      {
+        key: 'basket_jugador_triples',
+        label: 'Triples anotados',
+        inputType: MARKET_INPUT.PLAYER_OVER_UNDER,
+      },
+    ],
+  },
+  {
+    key: 'otro',
+    label: 'Otro',
+    markets: [
+      {
+        key: CUSTOM_MARKET_KEY,
+        label: 'Otro mercado',
+        inputType: MARKET_INPUT.CUSTOM,
+      },
+    ],
+  },
+]
 
-for (const category of MARKET_CATEGORIES) {
-  for (const market of category.markets) {
-    MARKET_MAP.set(market.key, { ...market, category: category.label })
+export const MARKET_CATEGORIES_BY_SPORT = {
+  [SPORTS.FOOTBALL]: MARKET_CATEGORIES,
+  [SPORTS.BASKETBALL]: BASKETBALL_MARKET_CATEGORIES,
+}
+
+const DEFAULT_SPORT = SPORTS.FOOTBALL
+
+function normalizeSport(sport) {
+  return MARKET_CATEGORIES_BY_SPORT[sport] ? sport : DEFAULT_SPORT
+}
+
+export function marketCategoriesForSport(sport) {
+  return MARKET_CATEGORIES_BY_SPORT[normalizeSport(sport)]
+}
+
+const MARKET_MAPS = {
+  [SPORTS.FOOTBALL]: new Map(),
+  [SPORTS.BASKETBALL]: new Map(),
+}
+
+for (const [sport, categories] of Object.entries(MARKET_CATEGORIES_BY_SPORT)) {
+  for (const category of categories) {
+    for (const market of category.markets) {
+      MARKET_MAPS[sport].set(market.key, {
+        ...market,
+        category: category.label,
+        sport,
+      })
+    }
   }
 }
 
-export function findMarket(key) {
+export function findMarket(key, sport = DEFAULT_SPORT) {
   if (!key) return null
-  return MARKET_MAP.get(key) ?? null
+
+  const normalizedSport = normalizeSport(sport)
+  const market = MARKET_MAPS[normalizedSport].get(key)
+  if (market) return market
+
+  for (const map of Object.values(MARKET_MAPS)) {
+    const fallback = map.get(key)
+    if (fallback) return fallback
+  }
+
+  return null
 }
 
-export function marketByKey(key) {
-  return findMarket(key)
+export function marketByKey(key, sport = DEFAULT_SPORT) {
+  return findMarket(key, sport)
 }
 
-export function findMarketByLabel(label) {
+export function findMarketByLabel(label, sport = DEFAULT_SPORT) {
   const normalized = String(label ?? '').trim().toLowerCase()
   if (!normalized) return null
 
-  for (const market of MARKET_MAP.values()) {
+  const normalizedSport = normalizeSport(sport)
+
+  for (const market of MARKET_MAPS[normalizedSport].values()) {
     if (market.label.toLowerCase() === normalized) return market
+  }
+
+  for (const map of Object.values(MARKET_MAPS)) {
+    for (const market of map.values()) {
+      if (market.label.toLowerCase() === normalized) return market
+    }
   }
 
   return null
@@ -420,6 +546,8 @@ export function defaultSelection(market) {
       return { min: '', max: '' }
     case MARKET_INPUT.PLAYER:
       return { player: '' }
+    case MARKET_INPUT.PLAYER_OVER_UNDER:
+      return { player: '', direction: 'over', line: '' }
     default:
       return null
   }
@@ -440,6 +568,7 @@ export function buildSelectionText(market, data, teams = {}) {
     case MARKET_INPUT.WINNER:
       if (value.value === 'home') return home
       if (value.value === 'away') return away
+      if (market.allowDraw === false) return home
       return 'Empate'
     case MARKET_INPUT.DOUBLE_CHANCE:
       if (value.value === '12') return `${home} o ${away}`
@@ -455,6 +584,12 @@ export function buildSelectionText(market, data, teams = {}) {
       return `Entre ${value.min ?? ''} y ${value.max ?? ''} goles`
     case MARKET_INPUT.PLAYER:
       return String(value.player ?? '').trim()
+    case MARKET_INPUT.PLAYER_OVER_UNDER: {
+      const player = String(value.player ?? '').trim()
+      const prefix = value.direction === 'under' ? 'Menos de' : 'Más de'
+      const line = `${prefix} ${value.line ?? ''}`.trim()
+      return [player, line].filter(Boolean).join(' · ')
+    }
     default:
       return ''
   }
@@ -466,10 +601,13 @@ export function validateSelection(market, data) {
   const value = data ?? {}
 
   switch (market.inputType) {
-    case MARKET_INPUT.WINNER:
-      return ['home', 'draw', 'away'].includes(value.value)
-        ? ''
-        : 'Elige un resultado.'
+    case MARKET_INPUT.WINNER: {
+      const options =
+        market.allowDraw === false
+          ? ['home', 'away']
+          : ['home', 'draw', 'away']
+      return options.includes(value.value) ? '' : 'Elige un resultado.'
+    }
     case MARKET_INPUT.DOUBLE_CHANCE:
       return ['1X', '12', 'X2'].includes(value.value)
         ? ''
@@ -508,6 +646,21 @@ export function validateSelection(market, data) {
       return String(value.player ?? '').trim()
         ? ''
         : 'Introduce el nombre o número del jugador.'
+    case MARKET_INPUT.PLAYER_OVER_UNDER: {
+      if (!String(value.player ?? '').trim()) {
+        return 'Introduce el nombre o número del jugador.'
+      }
+      if (!['over', 'under'].includes(value.direction)) {
+        return 'Elige Más de o Menos de.'
+      }
+      if (value.line === '' || value.line == null) {
+        return 'Introduce una línea válida.'
+      }
+      const line = Number(value.line)
+      return Number.isFinite(line) && line >= 0
+        ? ''
+        : 'Introduce una línea válida.'
+    }
     default:
       return ''
   }

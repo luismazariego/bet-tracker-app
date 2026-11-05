@@ -3,11 +3,13 @@ import { describe, it } from 'node:test'
 import { productOdds } from '../src/lib/bets.js'
 import {
   MARKET_INPUT,
+  SPORTS,
   buildSelectionText,
   defaultSelection,
   findMarket,
   findMarketByLabel,
   formatMatch,
+  marketCategoriesForSport,
   parseMatch,
   validateSelection,
 } from '../src/lib/markets.js'
@@ -53,6 +55,33 @@ describe('market catalog', () => {
 
   it('returns null for unknown markets', () => {
     assert.equal(findMarket('no_existe'), null)
+  })
+
+  it('exposes different categories per sport', () => {
+    const footballKeys = marketCategoriesForSport(SPORTS.FOOTBALL).flatMap(
+      (category) => category.markets.map((market) => market.key),
+    )
+    const basketballKeys = marketCategoriesForSport(SPORTS.BASKETBALL).flatMap(
+      (category) => category.markets.map((market) => market.key),
+    )
+
+    assert.ok(footballKeys.includes('ganador'))
+    assert.ok(footballKeys.includes('total_goles'))
+    assert.ok(basketballKeys.includes('basket_ganador'))
+    assert.ok(basketballKeys.includes('basket_total_puntos'))
+    assert.ok(basketballKeys.includes('basket_jugador_pra'))
+    assert.ok(!basketballKeys.includes('total_goles'))
+  })
+
+  it('finds basketball markets by key', () => {
+    assert.equal(
+      findMarket('basket_total_puntos')?.inputType,
+      MARKET_INPUT.OVER_UNDER,
+    )
+    assert.equal(
+      findMarket('basket_jugador_puntos')?.inputType,
+      MARKET_INPUT.PLAYER_OVER_UNDER,
+    )
   })
 })
 
@@ -105,6 +134,27 @@ describe('selection text', () => {
       'Messi',
     )
   })
+
+  it('builds basketball winner and player prop selections', () => {
+    const teams = { home: 'Lakers', away: 'Celtics' }
+
+    assert.equal(
+      buildSelectionText(
+        findMarket('basket_ganador', SPORTS.BASKETBALL),
+        { value: 'away' },
+        teams,
+      ),
+      'Celtics',
+    )
+
+    assert.equal(
+      buildSelectionText(
+        findMarket('basket_jugador_puntos', SPORTS.BASKETBALL),
+        { player: 'LeBron James', direction: 'over', line: '24.5' },
+      ),
+      'LeBron James · Más de 24.5',
+    )
+  })
 })
 
 describe('selection validation', () => {
@@ -142,6 +192,42 @@ describe('selection validation', () => {
       /jugador/,
     )
   })
+
+  it('does not allow a draw for basketball winners', () => {
+    const market = findMarket('basket_ganador', SPORTS.BASKETBALL)
+
+    assert.match(validateSelection(market, { value: 'draw' }), /resultado/)
+    assert.equal(validateSelection(market, { value: 'away' }), '')
+  })
+
+  it('requires player and line for player props', () => {
+    const market = findMarket('basket_jugador_puntos', SPORTS.BASKETBALL)
+
+    assert.match(
+      validateSelection(market, {
+        player: '',
+        direction: 'over',
+        line: '24.5',
+      }),
+      /jugador/,
+    )
+    assert.match(
+      validateSelection(market, {
+        player: 'LeBron James',
+        direction: 'over',
+        line: '',
+      }),
+      /línea válida/,
+    )
+    assert.equal(
+      validateSelection(market, {
+        player: 'LeBron James',
+        direction: 'under',
+        line: '24.5',
+      }),
+      '',
+    )
+  })
 })
 
 describe('defaultSelection', () => {
@@ -158,6 +244,10 @@ describe('defaultSelection', () => {
     assert.deepEqual(defaultSelection(findMarket('anota_local')), {
       player: '',
     })
+    assert.deepEqual(
+      defaultSelection(findMarket('basket_jugador_puntos', SPORTS.BASKETBALL)),
+      { player: '', direction: 'over', line: '' },
+    )
     assert.equal(defaultSelection(findMarket('otro')), null)
   })
 })

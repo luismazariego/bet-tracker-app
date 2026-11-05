@@ -10,6 +10,7 @@ import {
   formatSignedCurrency,
   profitClass,
 } from '../lib/bets'
+import { SportFilter } from './SportFilter'
 import { StatusBadge } from './StatusBadge'
 
 function StatCard({ label, value, hint, valueClass = 'text-slate-900 dark:text-white' }) {
@@ -26,7 +27,14 @@ function StatCard({ label, value, hint, valueClass = 'text-slate-900 dark:text-w
   )
 }
 
-export function Dashboard({ bets, onNewBet, onViewAll }) {
+export function Dashboard({
+  bets,
+  sportFilter,
+  sportCounts,
+  onSportFilterChange,
+  onNewBet,
+  onViewAll,
+}) {
   const stats = useMemo(() => calcStats(bets), [bets])
 
   const recentBets = useMemo(
@@ -47,7 +55,9 @@ export function Dashboard({ bets, onNewBet, onViewAll }) {
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             {bets.length === 0
-              ? 'Todavía no hay apuestas registradas.'
+              ? sportFilter === 'all'
+                ? 'Todavía no hay apuestas registradas.'
+                : 'No hay apuestas para el deporte seleccionado.'
               : `${bets.length} apuestas registradas · ${stats.settled} resueltas`}
           </p>
         </div>
@@ -59,6 +69,17 @@ export function Dashboard({ bets, onNewBet, onViewAll }) {
           <span className="text-base leading-none">+</span>
           Nueva apuesta
         </button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SportFilter
+          value={sportFilter}
+          onChange={onSportFilterChange}
+          counts={sportCounts}
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Las métricas se recalculan según el deporte seleccionado.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

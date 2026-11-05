@@ -3,12 +3,13 @@ import { useModal } from '../hooks/useModal'
 import { createId, formatCurrency, productOdds } from '../lib/bets'
 import {
   CUSTOM_MARKET_KEY,
-  MARKET_CATEGORIES,
   MARKET_INPUT,
+  SPORTS,
   buildSelectionText,
   defaultSelection,
   findMarket,
   formatMatch,
+  marketCategoriesForSport,
   parseMatch,
   validateSelection,
 } from '../lib/markets'
@@ -16,6 +17,11 @@ import {
 const MODES = [
   { key: 'single', label: 'Simple' },
   { key: 'combo', label: 'Combinada' },
+]
+
+const SPORT_OPTIONS = [
+  { key: SPORTS.FOOTBALL, label: 'Fútbol' },
+  { key: SPORTS.BASKETBALL, label: 'Basketball' },
 ]
 
 const ODDS_MODES = [
@@ -51,8 +57,8 @@ function createGroup() {
   }
 }
 
-function lineFromLeg(leg) {
-  const market = findMarket(leg.marketKey)
+function lineFromLeg(leg, sport) {
+  const market = findMarket(leg.marketKey, sport)
 
   if (market) {
     return {
@@ -77,6 +83,7 @@ function lineFromLeg(leg) {
 
 function groupsFromBet(bet) {
   const groups = []
+  const sport = bet.sport ?? SPORTS.FOOTBALL
 
   for (const leg of bet.legs ?? []) {
     const key = `${leg.match}::${leg.competition}`
@@ -93,7 +100,7 @@ function groupsFromBet(bet) {
       groups.push(group)
     }
 
-    group.lines.push(lineFromLeg(leg))
+    group.lines.push(lineFromLeg(leg, sport))
 
     if (group.odds === '' && leg.groupOdds != null) {
       group.odds = String(leg.groupOdds)
@@ -103,8 +110,7 @@ function groupsFromBet(bet) {
   return groups.length > 0 ? groups : [createGroup()]
 }
 
-function SelectionFields({ line, home, away, onChange }) {
-  const market = findMarket(line.marketKey)
+function SelectionFields({ line, market, home, away, onChange }) {
   if (!market || market.inputType === MARKET_INPUT.CUSTOM) return null
 
   const data = line.selectionData ?? {}
@@ -125,7 +131,9 @@ function SelectionFields({ line, home, away, onChange }) {
           className={inputClass}
         >
           <option value="home">{local}</option>
-          <option value="draw">Empate</option>
+          {market.allowDraw !== false && (
+            <option value="draw">Empate</option>
+          )}
           <option value="away">{visitor}</option>
         </select>
       </div>
@@ -275,6 +283,64 @@ function SelectionFields({ line, home, away, onChange }) {
     )
   }
 
+  if (market.inputType === MARKET_INPUT.PLAYER_OVER_UNDER) {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label htmlFor={fieldId('player')} className={labelClass}>
+            Jugador (nombre o número)
+          </label>
+          <input
+            id={fieldId('player')}
+            type="text"
+            value={data.player ?? ''}
+            onChange={(event) =>
+              onChange({ ...data, player: event.target.value })
+            }
+            placeholder="LeBron James o 23"
+            className={inputClass}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor={fieldId('player-direction')} className={labelClass}>
+              Selección
+            </label>
+            <select
+              id={fieldId('player-direction')}
+              value={data.direction ?? 'over'}
+              onChange={(event) =>
+                onChange({ ...data, direction: event.target.value })
+              }
+              className={inputClass}
+            >
+              <option value="over">Más de</option>
+              <option value="under">Menos de</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor={fieldId('player-line')} className={labelClass}>
+              Línea
+            </label>
+            <input
+              id={fieldId('player-line')}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="0.5"
+              value={data.line ?? ''}
+              onChange={(event) =>
+                onChange({ ...data, line: event.target.value })
+              }
+              placeholder="24.5"
+              className={inputClass}
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return null
 }
 
@@ -282,6 +348,7 @@ function LineFields({
   line,
   lineIndex,
   group,
+  sport,
   canRemove,
   lineMode,
   onMarketChange,
@@ -290,7 +357,7 @@ function LineFields({
   onRemove,
 }) {
   const fieldId = (field) => `line-${line.key}-${field}`
-  const market = findMarket(line.marketKey)
+  const market = findMarket(line.marketKey, sport)
 
   return (
     <div
@@ -331,7 +398,7 @@ function LineFields({
             required
           >
             <option value="">Selecciona un mercado</option>
-            {MARKET_CATEGORIES.map((category) => (
+            {marketCategoriesForSport(sport).map((category) => (
               <optgroup key={category.key} label={category.label}>
                 {category.markets.map((item) => (
                   <option key={item.key} value={item.key}>
@@ -388,6 +455,7 @@ function LineFields({
         {market && market.inputType !== MARKET_INPUT.CUSTOM && (
           <SelectionFields
             line={line}
+            market={market}
             home={group.home}
             away={group.away}
             onChange={(data) =>
@@ -425,6 +493,7 @@ function LineFields({
 function GroupFields({
   group,
   groupIndex,
+  sport,
   combo,
   lineMode,
   groupOddsMode,
@@ -499,6 +568,7 @@ function GroupFields({
             line={line}
             lineIndex={lineIndex}
             group={group}
+            sport={sport}
             canRemove={group.lines.length > 1}
             lineMode={lineMode}
             onMarketChange={onMarketChange}
@@ -550,6 +620,9 @@ function GroupFields({
 
 export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   const isEditing = Boolean(bet)
+  const [sport, setSport] = useState(
+    () => bet?.sport ?? SPORTS.FOOTBALL,
+  )
   const [mode, setMode] = useState(() =>
     bet && (bet.legs?.length ?? 0) > 1 ? 'combo' : 'single',
   )
@@ -595,6 +668,40 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
     setError('')
   }
 
+  function changeSport(nextSport) {
+    if (nextSport === sport) return
+
+    const hasSelections = groups.some((group) =>
+      group.lines.some(
+        (line) => line.marketKey || line.market.trim() || line.selection.trim(),
+      ),
+    )
+
+    if (
+      hasSelections &&
+      !window.confirm(
+        'Cambiar de deporte borrará los mercados y selecciones introducidos. ¿Continuar?',
+      )
+    ) {
+      return
+    }
+
+    setSport(nextSport)
+    setError('')
+    setGroups((previous) =>
+      previous.map((group) => ({
+        ...group,
+        lines: group.lines.map((line) => ({
+          ...line,
+          marketKey: '',
+          market: '',
+          selection: '',
+          selectionData: null,
+        })),
+      })),
+    )
+  }
+
   function updateGroup(groupKey, field, value) {
     setGroups((previous) =>
       previous.map((group) =>
@@ -621,7 +728,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   }
 
   function updateMarket(groupKey, lineKey, marketKey) {
-    const market = findMarket(marketKey)
+    const market = findMarket(marketKey, sport)
 
     setGroups((previous) =>
       previous.map((group) =>
@@ -740,7 +847,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
       }
 
       for (const [lineIndex, line] of lines.entries()) {
-        const market = findMarket(line.marketKey)
+        const market = findMarket(line.marketKey, sport)
 
         if (!market) {
           setError(
@@ -820,6 +927,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
     }
 
     const payload = {
+      sport,
       legs: normalizedLegs,
       odds: Number(effectiveOdds.toFixed(2)),
       stake,
@@ -929,6 +1037,31 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
+            <p className={labelClass}>Deporte</p>
+            <div
+              className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+              role="group"
+              aria-label="Deporte"
+            >
+              {SPORT_OPTIONS.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => changeSport(item.key)}
+                  aria-pressed={sport === item.key}
+                  className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    sport === item.key
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <p className={labelClass}>Tipo de apuesta</p>
             <div
               className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
@@ -1010,6 +1143,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
                 <GroupFields
                   group={group}
                   groupIndex={groupIndex}
+                  sport={sport}
                   combo={mode === 'combo'}
                   lineMode={lineMode}
                   groupOddsMode={groupOddsMode}

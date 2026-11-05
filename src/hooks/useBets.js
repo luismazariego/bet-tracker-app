@@ -8,6 +8,7 @@ const GENERIC_ERROR = 'No se pudo completar la acción.'
 function mapBetRow(row) {
   return {
     id: row.id,
+    sport: row.sport ?? 'football',
     odds: Number(row.odds),
     stake: Number(row.stake),
     status: row.status,
@@ -127,6 +128,7 @@ export function useBets(user) {
           p_odds: bet.odds,
           p_stake: bet.stake,
           p_legs: mapLegsPayload(bet),
+          p_sport: bet.sport ?? 'football',
         }),
       ),
     [runMutation],
@@ -140,6 +142,7 @@ export function useBets(user) {
           p_odds: bet.odds,
           p_stake: bet.stake,
           p_legs: mapLegsPayload(bet),
+          p_sport: bet.sport ?? 'football',
         }),
       ),
     [runMutation],

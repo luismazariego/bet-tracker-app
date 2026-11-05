@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AuthScreen } from './components/AuthScreen'
 import { BetList } from './components/BetList'
 import { ChangePasswordDialog } from './components/ChangePasswordDialog'
@@ -72,10 +72,29 @@ function App() {
   } = useBets(user)
 
   const [view, setView] = useState('dashboard')
+  const [sportFilter, setSportFilter] = useState('all')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingBet, setEditingBet] = useState(null)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [signOutError, setSignOutError] = useState('')
+
+  const sportCounts = useMemo(
+    () => ({
+      all: bets.length,
+      football: bets.filter((bet) => (bet.sport ?? 'football') === 'football')
+        .length,
+      basketball: bets.filter((bet) => bet.sport === 'basketball').length,
+    }),
+    [bets],
+  )
+
+  const sportFilteredBets = useMemo(
+    () =>
+      sportFilter === 'all'
+        ? bets
+        : bets.filter((bet) => (bet.sport ?? 'football') === sportFilter),
+    [bets, sportFilter],
+  )
 
   const openForm = useCallback(() => {
     setEditingBet(null)
@@ -277,13 +296,19 @@ function App() {
           </p>
         ) : view === 'dashboard' ? (
           <Dashboard
-            bets={bets}
+            bets={sportFilteredBets}
+            sportFilter={sportFilter}
+            sportCounts={sportCounts}
+            onSportFilterChange={setSportFilter}
             onNewBet={openForm}
             onViewAll={() => setView('history')}
           />
         ) : (
           <BetList
-            bets={bets}
+            bets={sportFilteredBets}
+            sportFilter={sportFilter}
+            sportCounts={sportCounts}
+            onSportFilterChange={setSportFilter}
             onUpdateStatus={updateStatus}
             onCashOut={cashOutBet}
             onRemove={handleRemove}
