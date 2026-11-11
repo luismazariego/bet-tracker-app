@@ -509,7 +509,7 @@ function GroupFields({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label htmlFor={fieldId('home')} className={labelClass}>
             Local
@@ -542,23 +542,22 @@ function GroupFields({
             className={inputClass}
           />
         </div>
-      </div>
-
-      <div>
-        <label htmlFor={fieldId('competition')} className={labelClass}>
-          Competición
-        </label>
-        <input
-          id={fieldId('competition')}
-          type="text"
-          value={group.competition}
-          onChange={(event) =>
-            onGroupChange(group.key, 'competition', event.target.value)
-          }
-          placeholder="Champions League"
-          className={inputClass}
-          required
-        />
+        <div className="sm:col-span-2 lg:col-span-1">
+          <label htmlFor={fieldId('competition')} className={labelClass}>
+            Competición
+          </label>
+          <input
+            id={fieldId('competition')}
+            type="text"
+            value={group.competition}
+            onChange={(event) =>
+              onGroupChange(group.key, 'competition', event.target.value)
+            }
+            placeholder="Champions League"
+            className={inputClass}
+            required
+          />
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -984,9 +983,6 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 dark:bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
       role="presentation"
     >
       <div
@@ -994,7 +990,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="quick-bet-title"
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white dark:bg-slate-900 p-5 shadow-xl sm:rounded-2xl sm:p-6"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white dark:bg-slate-900 p-5 shadow-xl sm:max-w-xl sm:rounded-2xl sm:p-6 lg:max-w-3xl xl:max-w-4xl"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -1036,72 +1032,22 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div>
-            <p className={labelClass}>Deporte</p>
-            <div
-              className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
-              role="group"
-              aria-label="Deporte"
-            >
-              {SPORT_OPTIONS.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => changeSport(item.key)}
-                  aria-pressed={sport === item.key}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                    sport === item.key
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className={labelClass}>Tipo de apuesta</p>
-            <div
-              className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
-              role="group"
-              aria-label="Tipo de apuesta"
-            >
-              {MODES.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => changeMode(item.key)}
-                  aria-pressed={mode === item.key}
-                  className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                    mode === item.key
-                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {mode === 'combo' && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className={labelClass}>Cuotas de la combinada</p>
+              <p className={labelClass}>Deporte</p>
               <div
                 className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
                 role="group"
-                aria-label="Modo de cuotas"
+                aria-label="Deporte"
               >
-                {ODDS_MODES.map((item) => (
+                {SPORT_OPTIONS.map((item) => (
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => changeOddsMode(item.key)}
-                    aria-pressed={oddsMode === item.key}
+                    onClick={() => changeSport(item.key)}
+                    aria-pressed={sport === item.key}
                     className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                      oddsMode === item.key
+                      sport === item.key
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
                     }`}
@@ -1111,7 +1057,59 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
                 ))}
               </div>
             </div>
-          )}
+
+            <div>
+              <p className={labelClass}>Tipo de apuesta</p>
+              <div
+                className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+                role="group"
+                aria-label="Tipo de apuesta"
+              >
+                {MODES.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => changeMode(item.key)}
+                    aria-pressed={mode === item.key}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                      mode === item.key
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {mode === 'combo' && (
+              <div className="sm:col-span-2">
+                <p className={labelClass}>Cuotas de la combinada</p>
+                <div
+                  className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+                  role="group"
+                  aria-label="Modo de cuotas"
+                >
+                  {ODDS_MODES.map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => changeOddsMode(item.key)}
+                      aria-pressed={oddsMode === item.key}
+                      className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                        oddsMode === item.key
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-3">
             {visibleGroups.map((group, groupIndex) => (
@@ -1168,89 +1166,91 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
             </button>
           )}
 
-          <div className="space-y-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <label
-                htmlFor="total-odds"
-                className="text-sm font-medium text-indigo-900/80 dark:text-indigo-100/80"
-              >
-                Cuota total
-              </label>
-              {oddsInput !== '' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOddsInput('')
-                    setError('')
-                  }}
-                  className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition hover:text-indigo-900 dark:hover:text-indigo-100"
+          <div className="grid gap-4 lg:grid-cols-3 lg:items-start">
+            <div className="space-y-2 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 px-4 py-3 lg:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="total-odds"
+                  className="text-sm font-medium text-indigo-900/80 dark:text-indigo-100/80"
                 >
-                  Usar automática
-                </button>
-              )}
+                  Cuota total
+                </label>
+                {oddsInput !== '' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOddsInput('')
+                      setError('')
+                    }}
+                    className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 transition hover:text-indigo-900 dark:hover:text-indigo-100"
+                  >
+                    Usar automática
+                  </button>
+                )}
+              </div>
+
+              <input
+                id="total-odds"
+                type="number"
+                inputMode="decimal"
+                min="1.01"
+                step="0.01"
+                value={oddsInput}
+                onChange={(event) => {
+                  setOddsInput(event.target.value)
+                  setError('')
+                }}
+                placeholder={autoOdds > 1 ? autoOdds.toFixed(2) : '1.00'}
+                className={inputClass}
+              />
+
+              <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+                {oddsInput === ''
+                  ? `Calculada automáticamente: ${autoOdds.toFixed(2)}`
+                  : `Automática: ${autoOdds.toFixed(2)} · Ajustada manualmente`}
+              </p>
+
+              <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+                {groupOddsMode
+                  ? 'La automática es el producto de las cuotas combinadas de cada partido.'
+                  : 'La automática es el producto de las cuotas de cada selección.'}
+              </p>
+
+              <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
+                Edítala si tu casa aplica ajustes, por ejemplo en combinadas del
+                mismo partido.
+              </p>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-indigo-900/70 dark:text-indigo-100/70">
+                  Retorno potencial
+                </span>
+                <span className="font-semibold text-indigo-700 dark:text-indigo-300">
+                  {formatCurrency(potentialReturn)}
+                </span>
+              </div>
             </div>
 
-            <input
-              id="total-odds"
-              type="number"
-              inputMode="decimal"
-              min="1.01"
-              step="0.01"
-              value={oddsInput}
-              onChange={(event) => {
-                setOddsInput(event.target.value)
-                setError('')
-              }}
-              placeholder={autoOdds > 1 ? autoOdds.toFixed(2) : '1.00'}
-              className={inputClass}
-            />
-
-            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
-              {oddsInput === ''
-                ? `Calculada automáticamente: ${autoOdds.toFixed(2)}`
-                : `Automática: ${autoOdds.toFixed(2)} · Ajustada manualmente`}
-            </p>
-
-            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
-              {groupOddsMode
-                ? 'La automática es el producto de las cuotas combinadas de cada partido.'
-                : 'La automática es el producto de las cuotas de cada selección.'}
-            </p>
-
-            <p className="text-xs text-indigo-900/60 dark:text-indigo-100/60">
-              Edítala si tu casa aplica ajustes, por ejemplo en combinadas del
-              mismo partido.
-            </p>
-
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-indigo-900/70 dark:text-indigo-100/70">
-                Retorno potencial
-              </span>
-              <span className="font-semibold text-indigo-700 dark:text-indigo-300">
-                {formatCurrency(potentialReturn)}
-              </span>
+            <div>
+              <label htmlFor="amount" className={labelClass}>
+                Monto (USD)
+              </label>
+              <input
+                id="amount"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(event) => {
+                  setAmount(event.target.value)
+                  setError('')
+                }}
+                placeholder="50.00"
+                className={inputClass}
+                required
+              />
             </div>
-          </div>
-
-          <div>
-            <label htmlFor="amount" className={labelClass}>
-              Monto (USD)
-            </label>
-            <input
-              id="amount"
-              type="number"
-              inputMode="decimal"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(event) => {
-                setAmount(event.target.value)
-                setError('')
-              }}
-              placeholder="50.00"
-              className={inputClass}
-              required
-            />
           </div>
 
           {error && (

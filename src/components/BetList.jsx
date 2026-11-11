@@ -20,6 +20,118 @@ const FILTERS = [
   { key: STATUS.CASHOUT, label: 'Cerradas antes' },
 ]
 
+const PAGE_SIZE_OPTIONS = [5, 10, 15, 20, 25]
+const DEFAULT_PAGE_SIZE = 10
+
+function pageWindow(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, index) => index + 1)
+  }
+
+  const pages = new Set([1, total, current - 1, current, current + 1])
+  const sorted = [...pages]
+    .filter((page) => page >= 1 && page <= total)
+    .sort((a, b) => a - b)
+
+  const result = []
+  let previous = 0
+
+  for (const page of sorted) {
+    if (previous && page - previous > 1) {
+      result.push(`ellipsis-${page}`)
+    }
+    result.push(page)
+    previous = page
+  }
+
+  return result
+}
+
+function Pagination({
+  page,
+  pageSize,
+  totalPages,
+  totalItems,
+  onPageChange,
+  onPageSizeChange,
+}) {
+  if (totalItems === 0) return null
+
+  const start = (page - 1) * pageSize + 1
+  const end = Math.min(page * pageSize, totalItems)
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 shadow-sm sm:flex-row">
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Mostrando {start}–{end} de {totalItems} apuestas
+        </p>
+        <label htmlFor="page-size" className="sr-only">
+          Apuestas por página
+        </label>
+        <select
+          id="page-size"
+          value={pageSize}
+          onChange={(event) => onPageSizeChange(Number(event.target.value))}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-medium text-slate-600 dark:text-slate-300 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+        >
+          {PAGE_SIZE_OPTIONS.map((size) => (
+            <option key={size} value={size}>
+              {size} por página
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="Paginación de apuestas">
+        <button
+          type="button"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          Anterior
+        </button>
+
+        {pageWindow(page, totalPages).map((item) =>
+          typeof item === 'number' ? (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onPageChange(item)}
+              aria-current={item === page ? 'page' : undefined}
+              className={`min-w-8 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${
+                item === page
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              {item}
+            </button>
+          ) : (
+            <span
+              key={item}
+              className="px-1 text-xs text-slate-400 dark:text-slate-500"
+              aria-hidden="true"
+            >
+              …
+            </span>
+          ),
+        )}
+
+        <button
+          type="button"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="rounded-lg border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          Siguiente
+        </button>
+      </nav>
+    </div>
+  )
+}
+
 function BetActions({ bet, onUpdateStatus, onCashOut, onRemove, onEdit }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -156,6 +268,8 @@ export function BetList({
 }) {
   const [filter, setFilter] = useState('ALL')
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [cashOutTarget, setCashOutTarget] = useState(null)
 
   const counts = useMemo(
@@ -193,6 +307,13 @@ export function BetList({
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }, [bets, filter, query])
 
+  const totalPages = Math.max(1, Math.ceil(filteredBets.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pagedBets = filteredBets.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  )
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -218,7 +339,10 @@ export function BetList({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SportFilter
           value={sportFilter}
-          onChange={onSportFilterChange}
+          onChange={(value) => {
+            onSportFilterChange(value)
+            setPage(1)
+          }}
           counts={sportCounts}
         />
         <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -234,7 +358,10 @@ export function BetList({
               <button
                 key={key}
                 type="button"
-                onClick={() => setFilter(key)}
+                onClick={() => {
+                  setFilter(key)
+                  setPage(1)
+                }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                   isActive
                     ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
@@ -264,7 +391,10 @@ export function BetList({
             id="bet-search"
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value)
+              setPage(1)
+            }}
             placeholder="Buscar partido, mercado..."
             className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-white shadow-sm outline-none transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           />
@@ -284,6 +414,7 @@ export function BetList({
             onClick={() => {
               setFilter('ALL')
               setQuery('')
+              setPage(1)
             }}
             className="mt-4 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-600 dark:text-slate-400 transition hover:bg-slate-200 dark:hover:bg-slate-700"
           >
@@ -307,7 +438,7 @@ export function BetList({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredBets.map((bet) => {
+                  {pagedBets.map((bet) => {
                     const profit = betProfit(bet)
                     const summary = betSummary(bet)
 
@@ -374,7 +505,7 @@ export function BetList({
           </div>
 
           <div className="space-y-3 md:hidden">
-            {filteredBets.map((bet) => {
+            {pagedBets.map((bet) => {
               const profit = betProfit(bet)
               const summary = betSummary(bet)
 
@@ -472,6 +603,20 @@ export function BetList({
           </div>
         </>
       )}
+
+      <Pagination
+        page={currentPage}
+        pageSize={pageSize}
+        totalPages={totalPages}
+        totalItems={filteredBets.length}
+        onPageChange={(nextPage) =>
+          setPage(Math.min(Math.max(nextPage, 1), totalPages))
+        }
+        onPageSizeChange={(nextPageSize) => {
+          setPageSize(nextPageSize)
+          setPage(1)
+        }}
+      />
 
       {cashOutTarget && (
         <CashOutDialog
