@@ -1,9 +1,8 @@
-import { SPORTS } from '../lib/markets'
+import { SPORT_OPTIONS } from '../lib/markets'
 
 const SPORT_FILTERS = [
   { key: 'all', label: 'Todos' },
-  { key: SPORTS.FOOTBALL, label: 'Fútbol' },
-  { key: SPORTS.BASKETBALL, label: 'Basketball' },
+  ...SPORT_OPTIONS,
 ]
 
 export function SportFilter({ value, onChange, counts }) {

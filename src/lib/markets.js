@@ -12,7 +12,16 @@ export const MARKET_INPUT = {
 export const SPORTS = {
   FOOTBALL: 'football',
   BASKETBALL: 'basketball',
+  TENNIS: 'tennis',
+  NFL: 'nfl',
 }
+
+export const SPORT_OPTIONS = [
+  { key: SPORTS.FOOTBALL, label: 'Fútbol' },
+  { key: SPORTS.BASKETBALL, label: 'Basketball' },
+  { key: SPORTS.TENNIS, label: 'Tenis' },
+  { key: SPORTS.NFL, label: 'NFL' },
+]
 
 export const CUSTOM_MARKET_KEY = 'otro'
 
@@ -460,9 +469,28 @@ export const BASKETBALL_MARKET_CATEGORIES = [
   },
 ]
 
+const SUMMARY_MARKET_CATEGORIES = [
+  {
+    key: 'resumen',
+    label: 'Resumen',
+    markets: [
+      {
+        key: CUSTOM_MARKET_KEY,
+        label: 'Resumen (texto libre)',
+        inputType: MARKET_INPUT.CUSTOM,
+      },
+    ],
+  },
+]
+
+export const TENNIS_MARKET_CATEGORIES = SUMMARY_MARKET_CATEGORIES
+export const NFL_MARKET_CATEGORIES = SUMMARY_MARKET_CATEGORIES
+
 export const MARKET_CATEGORIES_BY_SPORT = {
   [SPORTS.FOOTBALL]: MARKET_CATEGORIES,
   [SPORTS.BASKETBALL]: BASKETBALL_MARKET_CATEGORIES,
+  [SPORTS.TENNIS]: TENNIS_MARKET_CATEGORIES,
+  [SPORTS.NFL]: NFL_MARKET_CATEGORIES,
 }
 
 const DEFAULT_SPORT = SPORTS.FOOTBALL
@@ -475,10 +503,9 @@ export function marketCategoriesForSport(sport) {
   return MARKET_CATEGORIES_BY_SPORT[normalizeSport(sport)]
 }
 
-const MARKET_MAPS = {
-  [SPORTS.FOOTBALL]: new Map(),
-  [SPORTS.BASKETBALL]: new Map(),
-}
+const MARKET_MAPS = Object.fromEntries(
+  Object.keys(MARKET_CATEGORIES_BY_SPORT).map((sport) => [sport, new Map()]),
+)
 
 for (const [sport, categories] of Object.entries(MARKET_CATEGORIES_BY_SPORT)) {
   for (const category of categories) {

@@ -5,6 +5,7 @@ import {
   CUSTOM_MARKET_KEY,
   MARKET_INPUT,
   SPORTS,
+  SPORT_OPTIONS,
   buildSelectionText,
   defaultSelection,
   findMarket,
@@ -17,11 +18,6 @@ import {
 const MODES = [
   { key: 'single', label: 'Simple' },
   { key: 'combo', label: 'Combinada' },
-]
-
-const SPORT_OPTIONS = [
-  { key: SPORTS.FOOTBALL, label: 'Fútbol' },
-  { key: SPORTS.BASKETBALL, label: 'Basketball' },
 ]
 
 const ODDS_MODES = [
@@ -1036,7 +1032,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
             <div>
               <p className={labelClass}>Deporte</p>
               <div
-                className="flex gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
+                className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 dark:bg-slate-800 p-1"
                 role="group"
                 aria-label="Deporte"
               >
@@ -1046,7 +1042,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
                     type="button"
                     onClick={() => changeSport(item.key)}
                     aria-pressed={sport === item.key}
-                    className={`flex-1 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
                       sport === item.key
                         ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'

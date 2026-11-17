@@ -9,6 +9,7 @@ import { useAuth } from './hooks/useAuth'
 import { useBets } from './hooks/useBets'
 import { useTheme } from './hooks/useTheme'
 import { isSupabaseConfigured } from './lib/supabase'
+import { SPORT_OPTIONS } from './lib/markets'
 
 const TABS = [
   { key: 'dashboard', label: 'Resumen' },
@@ -78,15 +79,17 @@ function App() {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [signOutError, setSignOutError] = useState('')
 
-  const sportCounts = useMemo(
-    () => ({
-      all: bets.length,
-      football: bets.filter((bet) => (bet.sport ?? 'football') === 'football')
-        .length,
-      basketball: bets.filter((bet) => bet.sport === 'basketball').length,
-    }),
-    [bets],
-  )
+  const sportCounts = useMemo(() => {
+    const counts = { all: bets.length }
+
+    for (const { key } of SPORT_OPTIONS) {
+      counts[key] = bets.filter(
+        (bet) => (bet.sport ?? 'football') === key,
+      ).length
+    }
+
+    return counts
+  }, [bets])
 
   const sportFilteredBets = useMemo(
     () =>

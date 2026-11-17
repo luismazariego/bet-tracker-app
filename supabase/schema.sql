@@ -11,7 +11,7 @@ create table if not exists public.bets (
   status text not null default 'PENDING'
     check (status in ('PENDING', 'WON', 'LOST', 'CASHOUT')),
   sport text not null default 'football'
-    check (sport in ('football', 'basketball')),
+    check (sport in ('football', 'basketball', 'tennis', 'nfl')),
   cash_out numeric(12, 2),
   created_at timestamptz not null default now()
 );
@@ -40,7 +40,13 @@ alter table public.bet_legs add column if not exists selection_data jsonb;
 -- Migración para proyectos creados antes del soporte de deportes.
 alter table public.bets
   add column if not exists sport text not null default 'football'
-  check (sport in ('football', 'basketball'));
+  check (sport in ('football', 'basketball', 'tennis', 'nfl'));
+
+-- Migración para proyectos creados antes de tenis y NFL.
+alter table public.bets drop constraint if exists bets_sport_check;
+alter table public.bets
+  add constraint bets_sport_check
+  check (sport in ('football', 'basketball', 'tennis', 'nfl'));
 
 create index if not exists bet_legs_bet_id_idx
   on public.bet_legs (bet_id);

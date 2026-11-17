@@ -83,6 +83,18 @@ describe('market catalog', () => {
       MARKET_INPUT.PLAYER_OVER_UNDER,
     )
   })
+
+  it('offers only a free-text summary for tennis and NFL', () => {
+    for (const sport of [SPORTS.TENNIS, SPORTS.NFL]) {
+      const categories = marketCategoriesForSport(sport)
+      assert.equal(categories.length, 1)
+      assert.equal(categories[0].label, 'Resumen')
+      assert.equal(categories[0].markets.length, 1)
+
+      const market = findMarket(categories[0].markets[0].key, sport)
+      assert.equal(market?.inputType, MARKET_INPUT.CUSTOM)
+    }
+  })
 })
 
 describe('selection text', () => {
