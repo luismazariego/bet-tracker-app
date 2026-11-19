@@ -27,6 +27,10 @@ export const CUSTOM_MARKET_KEY = 'otro'
 
 export const DEFAULT_COMPETITION = 'NBA'
 
+export function defaultCompetitionForSport(sport) {
+  return sport === SPORTS.BASKETBALL ? DEFAULT_COMPETITION : ''
+}
+
 export const NBA_TEAMS = [
   'ATL Hawks',
   'BOS Celtics',

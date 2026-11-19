@@ -3,12 +3,12 @@ import { useModal } from '../hooks/useModal'
 import { createId, formatCurrency, productOdds } from '../lib/bets'
 import {
   CUSTOM_MARKET_KEY,
-  DEFAULT_COMPETITION,
   MARKET_INPUT,
   NBA_TEAMS,
   SPORTS,
   SPORT_OPTIONS,
   buildSelectionText,
+  defaultCompetitionForSport,
   defaultSelection,
   findMarket,
   formatMatch,
@@ -46,12 +46,12 @@ function createLine() {
   }
 }
 
-function createGroup() {
+function createGroup(sport = SPORTS.FOOTBALL) {
   return {
     key: createId(),
     home: '',
     away: '',
-    competition: DEFAULT_COMPETITION,
+    competition: defaultCompetitionForSport(sport),
     odds: '',
     lines: [createLine()],
   }
@@ -107,7 +107,7 @@ function groupsFromBet(bet) {
     }
   }
 
-  return groups.length > 0 ? groups : [createGroup()]
+  return groups.length > 0 ? groups : [createGroup(sport)]
 }
 
 function SelectionFields({ line, market, home, away, onChange }) {
@@ -692,6 +692,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
     setGroups((previous) =>
       previous.map((group) => ({
         ...group,
+        competition: defaultCompetitionForSport(nextSport),
         lines: group.lines.map((line) => ({
           ...line,
           marketKey: '',
@@ -796,7 +797,7 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
   }
 
   function addGroup() {
-    setGroups((previous) => [...previous, createGroup()])
+    setGroups((previous) => [...previous, createGroup(sport)])
   }
 
   function removeGroup(groupKey) {

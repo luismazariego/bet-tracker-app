@@ -7,6 +7,7 @@ import {
   NBA_TEAMS,
   SPORTS,
   buildSelectionText,
+  defaultCompetitionForSport,
   defaultSelection,
   findMarket,
   findMarketByLabel,
@@ -108,8 +109,12 @@ describe('NBA teams', () => {
     assert.ok(NBA_TEAMS.every((team) => /^[A-Z]{2,3} .+/.test(team)))
   })
 
-  it('defaults the competition to NBA', () => {
+  it('defaults the competition to NBA only for basketball', () => {
     assert.equal(DEFAULT_COMPETITION, 'NBA')
+    assert.equal(defaultCompetitionForSport(SPORTS.BASKETBALL), 'NBA')
+    assert.equal(defaultCompetitionForSport(SPORTS.FOOTBALL), '')
+    assert.equal(defaultCompetitionForSport(SPORTS.TENNIS), '')
+    assert.equal(defaultCompetitionForSport(SPORTS.NFL), '')
   })
 })
 
