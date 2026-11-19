@@ -25,6 +25,41 @@ export const SPORT_OPTIONS = [
 
 export const CUSTOM_MARKET_KEY = 'otro'
 
+export const DEFAULT_COMPETITION = 'NBA'
+
+export const NBA_TEAMS = [
+  'ATL Hawks',
+  'BOS Celtics',
+  'BKN Nets',
+  'CHA Hornets',
+  'CHI Bulls',
+  'CLE Cavaliers',
+  'DAL Mavericks',
+  'DEN Nuggets',
+  'DET Pistons',
+  'GSW Warriors',
+  'HOU Rockets',
+  'IND Pacers',
+  'LA Clippers',
+  'LA Lakers',
+  'MEM Grizzlies',
+  'MIA Heat',
+  'MIL Bucks',
+  'MIN Timberwolves',
+  'NO Pelicans',
+  'NY Knicks',
+  'OKC Thunder',
+  'ORL Magic',
+  'PHI 76ers',
+  'PHX Suns',
+  'POR Trail Blazers',
+  'SAC Kings',
+  'SA Spurs',
+  'TOR Raptors',
+  'UTA Jazz',
+  'WAS Wizards',
+]
+
 export const MARKET_CATEGORIES = [
   {
     key: 'resultado',

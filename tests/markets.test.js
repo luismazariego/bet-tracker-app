@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { productOdds } from '../src/lib/bets.js'
 import {
+  DEFAULT_COMPETITION,
   MARKET_INPUT,
+  NBA_TEAMS,
   SPORTS,
   buildSelectionText,
   defaultSelection,
@@ -94,6 +96,20 @@ describe('market catalog', () => {
       const market = findMarket(categories[0].markets[0].key, sport)
       assert.equal(market?.inputType, MARKET_INPUT.CUSTOM)
     }
+  })
+})
+
+describe('NBA teams', () => {
+  it('includes the 30 teams with abbreviation and name', () => {
+    assert.equal(NBA_TEAMS.length, 30)
+    assert.ok(NBA_TEAMS.includes('BOS Celtics'))
+    assert.ok(NBA_TEAMS.includes('LA Lakers'))
+    assert.ok(NBA_TEAMS.includes('MIA Heat'))
+    assert.ok(NBA_TEAMS.every((team) => /^[A-Z]{2,3} .+/.test(team)))
+  })
+
+  it('defaults the competition to NBA', () => {
+    assert.equal(DEFAULT_COMPETITION, 'NBA')
   })
 })
 

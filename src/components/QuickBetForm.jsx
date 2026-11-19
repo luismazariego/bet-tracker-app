@@ -3,7 +3,9 @@ import { useModal } from '../hooks/useModal'
 import { createId, formatCurrency, productOdds } from '../lib/bets'
 import {
   CUSTOM_MARKET_KEY,
+  DEFAULT_COMPETITION,
   MARKET_INPUT,
+  NBA_TEAMS,
   SPORTS,
   SPORT_OPTIONS,
   buildSelectionText,
@@ -14,6 +16,8 @@ import {
   parseMatch,
   validateSelection,
 } from '../lib/markets'
+
+const NBA_TEAMS_LIST_ID = 'nba-teams'
 
 const MODES = [
   { key: 'single', label: 'Simple' },
@@ -47,7 +51,7 @@ function createGroup() {
     key: createId(),
     home: '',
     away: '',
-    competition: '',
+    competition: DEFAULT_COMPETITION,
     odds: '',
     lines: [createLine()],
   }
@@ -519,6 +523,7 @@ function GroupFields({
             }
             placeholder="Barcelona"
             className={inputClass}
+            list={sport === SPORTS.BASKETBALL ? NBA_TEAMS_LIST_ID : undefined}
             autoFocus={groupIndex === 0}
             required
           />
@@ -536,6 +541,7 @@ function GroupFields({
             }
             placeholder="Aston Villa"
             className={inputClass}
+            list={sport === SPORTS.BASKETBALL ? NBA_TEAMS_LIST_ID : undefined}
           />
         </div>
         <div className="sm:col-span-2 lg:col-span-1">
@@ -1106,6 +1112,14 @@ export function QuickBetForm({ bet, onAdd, onUpdate, onClose }) {
               </div>
             )}
           </div>
+
+          {sport === SPORTS.BASKETBALL && (
+            <datalist id={NBA_TEAMS_LIST_ID}>
+              {NBA_TEAMS.map((team) => (
+                <option key={team} value={team} />
+              ))}
+            </datalist>
+          )}
 
           <div className="space-y-3">
             {visibleGroups.map((group, groupIndex) => (
